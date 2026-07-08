@@ -358,3 +358,28 @@ which makes this a research exercise, not the investor-sourcing tool it's meant 
      generated URL — first-time OAuth setup for a "Testing"-status app is fiddly enough
      that budgeting for 2-3 failed attempts before success is realistic, not a sign
      something is fundamentally broken.
+- **2026-07-08, SEBI AIF ingestion attempted, blocked — don't re-attempt via WebFetch alone**:
+  tried to wire up `normalize_sebi_aif()` (schema already existed, never fed real data)
+  against the live registry at
+  `sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=16`. Found the actual
+  site doesn't match this directive's original assumption:
+  - It's a Java-portal search form (~1,976 AIFs, paginated 25/page, ~79 pages), not a bulk
+    export. There is no CSV/Excel download of the full registry on this live page (the 2016
+    static PDF snapshot that shows up in search results is stale and not a substitute).
+  - The list view has **no "sponsor name" field at all** — only fund name, registration
+    number, contact person, and **email**. Sponsor name (the original signal this directive
+    assumed) may only exist on a per-fund detail page, if anywhere.
+  - Search is POST-based; guessing a GET query param (`?fundName=family`) silently returned
+    the unfiltered full list rather than erroring, which could easily be mistaken for "no
+    matches" instead of "the filter was never applied." Watch for this failure mode —
+    silent no-op on an unsupported query param, not a clean error.
+  - Chrome browser automation (which could drive the actual search form) wasn't connected
+    in this session, and pulling all ~79 pages blind via WebFetch was judged too wasteful
+    for what would be mostly non-family-office noise.
+  **Next attempt should**: get Chrome/browser tooling connected first, use it to actually
+  type into the search form (try "family" and "family office" as fund-name queries) rather
+  than guessing URL parameters, and check whether an individual fund's detail page (not the
+  list view) exposes sponsor name before assuming the field doesn't exist anywhere on the
+  site. Contact person + email being present on the list view is a real, usable field if a
+  family-office-backed subset can be isolated — don't discard that finding even if the
+  original "sponsor name" plan doesn't pan out.
