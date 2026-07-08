@@ -96,8 +96,9 @@ def main() -> int:
     parser.add_argument("--output", required=True, help="Directory to write output artifacts")
     parser.add_argument("--config", default=None, help="Path to config.yaml (default: repo root)")
     parser.add_argument("--skip-enrichment", action="store_true", help="Skip Claude plausibility assessment of unconfirmed candidates")
-    parser.add_argument("--skip-sheets", action="store_true", help="Skip Google Sheet sync even if --sheet-id is given")
-    parser.add_argument("--sheet-id", default=None, help="Google Sheet spreadsheet ID to sync into")
+    parser.add_argument("--skip-sheets", action="store_true", help="Skip Google Sheet sync even if --sheet-id/--sync-sheets is given")
+    parser.add_argument("--sheet-id", default=None, help="Google Sheet spreadsheet ID to sync into (omit with --sync-sheets to auto-create a new sheet on first run)")
+    parser.add_argument("--sync-sheets", action="store_true", help="Sync to Google Sheets. If --sheet-id is omitted, creates a new spreadsheet and prints its ID/URL for reuse on future runs.")
     parser.add_argument("--format", choices=["docx", "csv", "both"], default="both")
     parser.add_argument("--city", default=None, help="Filter output to a single city (case-insensitive, e.g. Mumbai). Produces city-suffixed output filenames.")
     parser.add_argument("--state", default=None, help="Filter output to a single state (case-insensitive, e.g. Maharashtra). Combinable with --city; produces state-suffixed output filenames.")
@@ -197,17 +198,19 @@ def main() -> int:
 
     if args.skip_sheets:
         logger.info("Skipping Google Sheet sync (--skip-sheets)")
-    elif not args.sheet_id:
-        logger.info("No --sheet-id given, skipping Google Sheet sync")
+    elif not (args.sheet_id or args.sync_sheets):
+        logger.info("No --sheet-id/--sync-sheets given, skipping Google Sheet sync")
     else:
         try:
             from family_office_sourcing.output_sheets import sync_to_sheet
 
-            sync_to_sheet(
+            used_id = sync_to_sheet(
                 run, args.sheet_id, sourcing_config.output.sheet_name,
                 sourcing_config.output.preserve_columns, REPO_ROOT,
             )
-            print(f"Synced to Google Sheet {args.sheet_id}")
+            print(f"Synced to Google Sheet: https://docs.google.com/spreadsheets/d/{used_id}/edit")
+            if not args.sheet_id:
+                print(f"Save this ID for future runs: --sheet-id {used_id}")
         except SheetsNotConfigured as exc:
             logger.warning("Google Sheet sync skipped: %s", exc)
         except ImportError as exc:

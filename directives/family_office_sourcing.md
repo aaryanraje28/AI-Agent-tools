@@ -334,3 +334,27 @@ which makes this a research exercise, not the investor-sourcing tool it's meant 
   repo lives in a OneDrive-synced folder). Not a code bug; writing to a fresh output
   directory succeeded immediately. If this recurs, check whether the target file is open in
   another program before assuming the renderer itself is broken.
+- **2026-07-08, added**: `sync_to_sheet` (`output_sheets.py`) now auto-creates a new
+  spreadsheet (with its one tab pre-named to `sheet_name`) when `--sheet-id` is omitted,
+  returning the created ID so the CLI can print it for reuse on future runs
+  (`--sync-sheets` is the new flag that triggers this; `--sheet-id` still targets an
+  existing sheet for incremental upserts). Closes the loop from a bare docx/CSV export to
+  an actual live CRM without requiring the user to manually create a blank sheet first.
+- **2026-07-08, Google OAuth setup — three real errors hit in sequence, for next time**:
+  1. `Error 400: invalid_request` / "Required parameter is missing: response_type" —
+     despite the generated authorization URL clearly containing `response_type=code`. This
+     specific, misleading error was actually caused by the OAuth consent screen's scope
+     configuration never having been explicitly saved. Fix: **Google Auth Platform → Data
+     Access → Add or Remove Scopes**, add `.../auth/spreadsheets` explicitly, Save — even
+     though the runtime request already declares that scope, the consent screen's own
+     declared-scopes list is checked separately.
+  2. `Error 403: access_denied` ("developer-approved testers" only) — the Google Cloud
+     project selected in the console differed from the one the OAuth client actually
+     belonged to (a giveaway: the consent screen's app name shown in the error page didn't
+     match what was configured). Fix: confirm the project selector at the top of
+     console.cloud.google.com matches before editing **Google Auth Platform → Audience**,
+     then add the test user's own email there.
+  3. Once both were fixed on the *correct* project, the flow completed cleanly on the next
+     generated URL — first-time OAuth setup for a "Testing"-status app is fiddly enough
+     that budgeting for 2-3 failed attempts before success is realistic, not a sign
+     something is fundamentally broken.

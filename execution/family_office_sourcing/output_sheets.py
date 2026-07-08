@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Optional
 
 from family_office_sourcing.schemas import CandidateRecord, SourcingRun
 
@@ -77,18 +78,37 @@ def _row_for(record: CandidateRecord) -> list[str]:
     return [base[h] for h in _BASE_HEADERS]
 
 
+def _create_spreadsheet(service, sheet_name: str) -> str:
+    """Creates a new spreadsheet with its one tab already named `sheet_name`, so the
+    upsert logic below (which addresses ranges as f"{sheet_name}!...") works immediately
+    without a separate rename call."""
+    body = {
+        "properties": {"title": f"EQUINOVA — {sheet_name}"},
+        "sheets": [{"properties": {"title": sheet_name}}],
+    }
+    created = service.spreadsheets().create(body=body, fields="spreadsheetId,spreadsheetUrl").execute()
+    logger.info("Created new spreadsheet: %s", created["spreadsheetUrl"])
+    return created["spreadsheetId"]
+
+
 def sync_to_sheet(
     run: SourcingRun,
-    spreadsheet_id: str,
+    spreadsheet_id: Optional[str],
     sheet_name: str,
     preserve_columns: list[str],
     repo_root: Path,
-) -> None:
+) -> str:
+    """Returns the spreadsheet_id used — if `spreadsheet_id` was None, this is the newly
+    created sheet's ID, which the caller should print/save so future runs reuse the same
+    sheet instead of creating a new one every time."""
     from googleapiclient.discovery import build
 
     creds = _authenticate(repo_root)
     service = build("sheets", "v4", credentials=creds)
     full_headers = _BASE_HEADERS + [c for c in preserve_columns if c not in _BASE_HEADERS]
+
+    if spreadsheet_id is None:
+        spreadsheet_id = _create_spreadsheet(service, sheet_name)
 
     existing = service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id, range=f"{sheet_name}!A1:Z10000"
@@ -139,3 +159,4 @@ def sync_to_sheet(
         ).execute()
 
     logger.info("Sheet sync: %d updated, %d appended", len(updates), len(appends))
+    return spreadsheet_id
