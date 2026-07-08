@@ -1,0 +1,24 @@
+anthropic>=0.40.0
+pydantic>=2.6
+PyYAML>=6.0
+python-dotenv>=1.0
+
+# Document parsing
+PyMuPDF>=1.24        # PDF text + page rendering (fitz)
+pdfplumber>=0.11      # fallback PDF text/table extraction
+python-docx>=1.1
+openpyxl>=3.1
+pandas>=2.2
+
+# OCR
+pytesseract>=0.3.10   # requires the Tesseract OCR binary installed separately
+Pillow>=10.0
+
+# Reporting (docx generation module, next increment)
+python-docx>=1.1
+
+# Family office sourcing
+rapidfuzz>=3.9        # fuzzy name matching for cross-source dedupe
+google-api-python-client>=2.140   # Google Sheets CRM sync
+google-auth-httplib2>=0.2
+google-auth-oauthlib>=1.2

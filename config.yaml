@@ -1,0 +1,120 @@
+# Due Diligence Agent configuration.
+# Adjust per mandate; nothing here should require a code change.
+
+model:
+  # Anthropic model used for classification, extraction, and risk flagging.
+  name: "claude-sonnet-5"
+  max_tokens: 4096
+  temperature: 0
+
+materiality:
+  # Financial DD: flag anomalies above these thresholds (module not yet implemented in v1).
+  revenue_variance_pct: 15          # flag YoY revenue swings beyond this %
+  ebitda_adjustment_pct: 10         # flag normalization adjustments beyond this % of reported EBITDA
+  related_party_revenue_pct: 5      # flag related-party revenue beyond this % of total revenue
+  contract_value_threshold: 5000000 # flag contracts above this value (INR) for extra scrutiny
+
+taxonomy:
+  # DD categories documents are classified into. Keep in sync with
+  # execution/dd_agent/schemas/common.py:DDCategory.
+  categories:
+    - "Corporate/Legal"
+    - "Financial"
+    - "Tax"
+    - "Commercial/Operations"
+    - "HR"
+    - "IP"
+    - "Litigation"
+    - "Compliance/Regulatory"
+    - "Real Estate/Assets"
+
+ingestion:
+  supported_extensions: [".pdf", ".docx", ".xlsx", ".xls", ".png", ".jpg", ".jpeg", ".tiff"]
+  ocr_enabled: true
+  ocr_min_confidence: 60   # below this, flag ocr_low_confidence in the document index
+  max_file_size_mb: 200
+
+report:
+  # House style for client-facing deliverables. Restrained/monochromatic — no dark or
+  # heavy fills. Gold is a sparing accent (rules, small headers), never a large fill.
+  heading_font: "Cambria"
+  body_font: "Cambria"
+  palette:
+    navy: "1F2A44"
+    gold: "B8860B"
+    cream: "F5F0E6"
+  table:
+    # Each value below may be either a palette name (navy/gold/cream, resolved against
+    # `palette` above) or a literal hex code — docx_report.py resolves either form.
+    header_fill: "navy"
+    header_text: "cream"
+    body_text: "1F2A44"        # navy text on white/cream, not gold-on-dark
+    border: "thin"
+  # Structure headings (Word "Heading 1/2/3" styles) and tables as native Word objects
+  # (not text blocks or images) so financial tables and the risk register can be
+  # selected and pasted directly into the existing DD report template.
+  word_template_compatibility: true
+
+family_office_sourcing:
+  # Fuzzy-name-match threshold (rapidfuzz token_sort_ratio, 0-100) above which two
+  # candidates from different sources are merged into one CandidateRecord.
+  dedupe_match_threshold: 88
+
+  # Deterministic priority scoring weights. Score = sum of weights for each condition met;
+  # thresholds below map the resulting score to a tier.
+  scoring:
+    confirmed_source_weight: 40        # Tracxn-tagged (vs. unconfirmed SEBI/web signal)
+    enrichment_confirmed_weight: 35    # unconfirmed (e.g. LinkedIn/web) but LLM-verified plausible
+    sector_fit_weight: 25              # shortDescription/taxonomy matches a target sector
+    tier1_city_weight: 15              # Mumbai/Delhi NCR/Bengaluru/Chennai/Pune/Hyderabad
+    recent_activity_weight: 20         # any known investment activity in the last 24 months
+    tier_a_min_score: 70
+    tier_b_min_score: 40
+
+  # Sector keywords considered "fit" for sector_fit_weight (matched against
+  # shortDescription/taxonomy, case-insensitive substring match).
+  target_sectors:
+    - "fintech"
+    - "healthcare"
+    - "consumer"
+    - "technology"
+    - "manufacturing"
+    - "real estate"
+
+  # Family-office-type exclusion filter — applied ONLY to unconfirmed (web/LinkedIn)
+  # candidates, matched case-insensitively as a substring against evidence text. A
+  # Tracxn-confirmed record is never excluded on these, since Tracxn's curation already
+  # is the family-office-type filter for that source (see config.py's field comment).
+  exclude_office_type_keywords:
+    - "registered investment advisor"
+    - "investment advisory firm"
+    - "investment advisory firms"
+    - "wealth advisor"
+    - "wealth management firm"
+    - "wealth manager"
+    - "multi-family office services"
+    - "multi family office services provider"
+    - "services provider"
+    - "boutique multi family office"
+
+  # Deterministic keyword classification of investment mode (scoring.py). Purely additive
+  # metadata — never excludes a candidate, unlike the list above.
+  lp_allocator_keywords:
+    - "limited partner"
+    - "fund of funds"
+    - "invests in venture funds"
+    - "invests in private equity funds"
+    - "lp in"
+  direct_investor_keywords:
+    - "direct investments"
+    - "invests directly"
+    - "direct equity investments"
+    - "co-invests"
+    - "co-investment"
+
+  output:
+    docx_filename: "Family_Office_Prospects.docx"
+    sheet_name: "Indian Family Office Prospects"
+    # Columns in the Google Sheet CRM that are human-editable and must never be
+    # overwritten by an automated re-sync.
+    preserve_columns: ["Status", "Notes"]

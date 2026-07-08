@@ -1,0 +1,16 @@
+# Secrets
+.env
+credentials.json
+token.json
+
+# Intermediates (always regenerated)
+.tmp/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Claude Code local machine settings (absolute paths, local permission grants)
+.claude/settings.local.json
